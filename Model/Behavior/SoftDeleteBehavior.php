@@ -29,7 +29,7 @@
 		'field' => 'active'
 	);
 	
-	public function setup(&$model, $config = array())
+	public function setup($model, $config = array())
 	{
 		$this->settings[$model->name] = Set::merge($this->defaultSettings, $config);
 	}
@@ -40,7 +40,7 @@
 	 * @param array $queryData
 	 * @see ModelBehavior::beforeFind()
 	 */
-	public function beforeFind(&$model, &$queryData)
+	public function beforeFind($model, $queryData)
 	{
 		parent::beforeFind($model, $queryData);
 		
