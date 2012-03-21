@@ -21,12 +21,12 @@
  * @license http://www.opensource.org/licenses/mit-license.php The MIT License
  *
  * @package radig
- * @subpackage soft_delete.models.behaviors
+ * @subpackage SoftDelete.Models.Behaviors
  */
  class SoftDeleteBehavior extends ModelBehavior
 {
 	public $defaultSettings = array(
-		'field' => 'active'
+		'field' => 'deleted'
 	);
 	
 	public function setup($model, $config = array())
@@ -50,7 +50,7 @@
 		// Verifica o modelo corrente se possui o campo de busca
 		if(isset($model->_schema[$f]) && !isset($queryData['conditions'][$c]))
 		{
-			$queryData['conditions'][$c] = true;
+			$queryData['conditions'][$c] = false;
 		}
 		
 		return $queryData;
@@ -64,7 +64,7 @@
 	 */
 	public function softDelete(&$model, $id)
 	{
-		$data = array('id' => $id, 'active' => 0);
+		$data = array('id' => $id, 'deleted' => true);
 		$model->id = $id;
 			
 		return $model->save($data);
