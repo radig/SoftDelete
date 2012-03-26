@@ -31,7 +31,7 @@
 	
 	public function setup($model, $config = array())
 	{
-		$this->settings[$model->name] = Set::merge($this->defaultSettings, $config);
+		$this->settings[$model->alias] = Set::merge($this->defaultSettings, $config);
 	}
 	
 	/**
@@ -44,15 +44,16 @@
 	{
 		parent::beforeFind($model, $queryData);
 		
-		$f = $this->settings[$model->name]['field'];
-		$c = $model->name . '.' . $f;
+		$f = $this->settings[$model->alias]['field'];
+		$c = $model->alias . '.' . $f;
+
+		$schema = $model->schema();
 	
 		// Verifica o modelo corrente se possui o campo de busca
-		if(isset($model->_schema[$f]) && !isset($queryData['conditions'][$c]))
+		if(isset($schema[$f]) && !isset($queryData['conditions'][$c]))
 		{
 			$queryData['conditions'][$c] = false;
 		}
-		
 		return $queryData;
 	}
 	
