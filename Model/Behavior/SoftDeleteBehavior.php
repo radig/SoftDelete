@@ -29,45 +29,91 @@
 		'field' => 'deleted'
 	);
 	
-	public function setup($model, $config = array())
+	public function setup($Model, $config = array())
 	{
-		$this->settings[$model->alias] = Set::merge($this->defaultSettings, $config);
+		$this->settings[$Model->alias] = Set::merge($this->defaultSettings, $config);
 	}
 	
 	/**
 	 * Adiciona condição de registros ativos nas buscas do modelo
-	 * @param Model $model
+	 * @param Model $Model
 	 * @param array $queryData
 	 * @see ModelBehavior::beforeFind()
 	 */
-	public function beforeFind($model, $queryData)
+	public function beforeFind($Model, $queryData)
 	{
-		parent::beforeFind($model, $queryData);
-		
-		$f = $this->settings[$model->alias]['field'];
-		$c = $model->alias . '.' . $f;
+		parent::beforeFind($Model, $queryData);
 
-		$schema = $model->schema();
-	
-		// Verifica o modelo corrente se possui o campo de busca
-		if(isset($schema[$f]) && !isset($queryData['conditions'][$c]))
-		{
-			$queryData['conditions'][$c] = false;
-		}
+		$this->_prepareFind($queryData, $Model);
+
 		return $queryData;
 	}
 	
 	/**
 	 * Implementa soft-delete para modelos da aplicação
 	 * 
-	 * @param Model 
+	 * @param Model $Model
 	 * @param int $id
 	 */
-	public function softDelete(&$model, $id)
+	public function softDelete(&$Model, $id)
 	{
-		$data = array('id' => $id, 'deleted' => true);
-		$model->id = $id;
-			
-		return $model->save($data);
+		$Model->id = $id;
+		
+		return ($Model->saveField($this->settings[$Model->alias]['field'], true) !== false);
+	}
+
+	/**
+	 * Método para "desdeletar" uma entrada do modelo.
+	 * 
+	 * @param Model $Model
+	 * @param int $id
+	 */
+	public function unDelete(&$Model, $id)
+	{
+		$Model->id = $id;
+		
+		return ($Model->saveField($this->settings[$Model->alias]['field'], false) !== false);
+	}
+
+	private function _prepareFind(&$query, &$Model)
+	{
+		$fieldName = $this->settings[$Model->alias]['field'];
+		$field =  $Model->alias . '.' . $fieldName;
+		$schema = $Model->schema();
+		$associateds = $Model->getAssociated();
+
+		if(isset($schema[$fieldName]))
+		{
+			$query['conditions'][$field] = false;
+		}
+
+		if(empty($associateds))
+		{
+			return;
+		}
+
+		foreach($associateds as $associated => $type)
+		{
+			if(!$Model->{$associated}->Behaviors->attached('SoftDelete'))
+				continue;
+
+			$config = $Model->{$type}[$associated];
+
+			$afield = $this->settings[$associated]['field'];
+			$aschema = $Model->{$associated}->schema();
+
+			if(isset($aschema[$afield]))
+			{
+				$config['conditions'][$associated . '.' . $afield] = false;
+			}
+
+			$Model->unbindModel(array($type => array($associated)));
+
+			$Model->bindModel(array(
+				$type => array(
+					$associated => $config
+				)
+			));
+		}
 	}
 }
