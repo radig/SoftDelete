@@ -8,7 +8,7 @@
  * Redistributions of files must retain the above copyright notice.
  *
  * @copyright 2011 - 2012, Radig Soluções em TI
- * @link      http://github.com/radig/soft_delete
+ * @link      http://github.com/radig/softdelete
  * @package   Plugn.SoftDelete
  * @license   MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
