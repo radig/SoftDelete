@@ -1,22 +1,22 @@
 <?php
 /**
  * Behavior que implementa exclusão lógica de registros
- * 
+ *
  * Uso: deve existir uma coluna na tabela do modelo utilizado que indique se o registro
- * está ativo ou não (valor binário do tipo boolean, integer, tinyint, etc). Por default 
+ * está ativo ou não (valor binário do tipo boolean, integer, tinyint, etc). Por default
  * o nome dessa coluna é 'active'. Se outro nome for utilizado, deve ser informado ao behavior
  * através do atributo 'field' das configurações do behavior.
  * A exclusão de registros é feita através do método softDelete().
- * 
- * Qualquer busca feita pelos registros que utilizem o behavior SoftDelete somente incluem os 
+ *
+ * Qualquer busca feita pelos registros que utilizem o behavior SoftDelete somente incluem os
  * registros cujo campo active seja true (1)
- * 
+ *
  * PHP version > 5.3.1
- * 
+ *
  * Licensed under The MIT License
  * Redistributions of files must retain the above copyright notice.
- * 
- * @copyright 2011, Radig - Soluções em TI, www.radig.com.br
+ *
+ * @copyright 2011-2012, Radig - Soluções em TI, www.radig.com.br
  * @link http://www.radig.com.br
  * @license http://www.opensource.org/licenses/mit-license.php The MIT License
  *
@@ -28,19 +28,19 @@
 	public $defaultSettings = array(
 		'field' => 'deleted'
 	);
-	
-	public function setup($Model, $config = array())
+
+	public function setup(Model $Model, $config = array())
 	{
 		$this->settings[$Model->alias] = Set::merge($this->defaultSettings, $config);
 	}
-	
+
 	/**
 	 * Adiciona condição de registros ativos nas buscas do modelo
 	 * @param Model $Model
 	 * @param array $queryData
 	 * @see ModelBehavior::beforeFind()
 	 */
-	public function beforeFind($Model, $queryData)
+	public function beforeFind(Model $Model, $queryData)
 	{
 		parent::beforeFind($Model, $queryData);
 
@@ -48,30 +48,30 @@
 
 		return $queryData;
 	}
-	
+
 	/**
 	 * Implementa soft-delete para modelos da aplicação
-	 * 
+	 *
 	 * @param Model $Model
 	 * @param int $id
 	 */
 	public function softDelete(&$Model, $id)
 	{
 		$Model->id = $id;
-		
+
 		return ($Model->saveField($this->settings[$Model->alias]['field'], true) !== false);
 	}
 
 	/**
 	 * Método para "desdeletar" uma entrada do modelo.
-	 * 
+	 *
 	 * @param Model $Model
 	 * @param int $id
 	 */
 	public function unDelete(&$Model, $id)
 	{
 		$Model->id = $id;
-		
+
 		return ($Model->saveField($this->settings[$Model->alias]['field'], false) !== false);
 	}
 
