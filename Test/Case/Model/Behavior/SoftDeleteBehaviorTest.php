@@ -12,18 +12,18 @@ class Post extends CakeTestModel
 	public $belongsTo = array('User');
 }
 
-class SoftDeleteBehaviorTest extends CakeTestCase 
-{	
+class SoftDeleteBehaviorTest extends CakeTestCase
+{
 	public $fixtures = array('plugin.SoftDelete.User', 'plugin.SoftDelete.Post');
-	
+
 	public $User;
-	
+
 	public function setUp()
 	{
 		parent::setUp();
-		$this->User =& ClassRegistry::init('User');
+		$this->User = ClassRegistry::init('User');
 	}
-	
+
 	public function tearDown()
 	{
 		parent::tearDown();
@@ -36,7 +36,7 @@ class SoftDeleteBehaviorTest extends CakeTestCase
 		$this->assertTrue($this->User->softDelete(1));
 
 		$result = $this->User->find('first', array('conditions' => array('User.id' => 1)));
-		$this->assertFalse($result);
+		$this->assertEqual($result, array());
 
 		$this->User->Behaviors->disable('SoftDelete');
 		$result = $this->User->find('first', array('conditions' => array('User.id' => 1)));
@@ -57,7 +57,7 @@ class SoftDeleteBehaviorTest extends CakeTestCase
 		$this->assertTrue($this->User->softDelete(1));
 
 		$result = $this->User->find('first', array('conditions' => array('User.id' => 1, 'User.deleted' => false)));
-		$this->assertFalse($result);
+		$this->assertEqual($result, array());
 	}
 
 	public function testSimpleDeleteUnDelete()
@@ -91,7 +91,7 @@ class SoftDeleteBehaviorTest extends CakeTestCase
 					'name'  => 'tonho',
 					'password'  => 'sem_hash'
 				)
-			)	
+			)
 		);
 
 		$this->assertEquals($result, $expected);
@@ -99,7 +99,7 @@ class SoftDeleteBehaviorTest extends CakeTestCase
 
 	public function testFindAssociated()
 	{
-		$this->Post =& ClassRegistry::init('Post');
+		$this->Post = ClassRegistry::init('Post');
 
 		$result = $this->Post->find('first', array('conditions' => array('User.id' => 1)));
 		$expected = array(
@@ -138,6 +138,6 @@ class SoftDeleteBehaviorTest extends CakeTestCase
 		$this->assertEquals($result, $expected);
 
 		$result = $this->Post->find('first', array('conditions' => array('User.id' => 1)));
-		$this->assertFalse($result);
+		$this->assertEqual($result, array());
 	}
 }
