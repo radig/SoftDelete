@@ -49,13 +49,21 @@
 	}
 
 	/**
-	 * Informa se o registro existe e esta ativo (não deletado)
+	 * Informa se o registro existe e esta ativo (não deletado).
+	 * Caso modelo não tenha o campo relacionado ao SoftDelete, apenas
+	 * retorna um Model::exists para o registro.
+	 *
 	 * @param  Model $Model
 	 * @param  int   $id    ID do registro
 	 * @return bool
 	 */
 	public function active($Model, $id)
 	{
+		$schema = $Model->schema();
+		if (!isset($schema[$this->settings[$Model->alias]['field']])) {
+			return $Model->exists($id);
+		}
+
 		return (bool)$Model->find('count', array(
 			'conditions' => array(
 				$Model->alias . '.' . $Model->primaryKey => $id,
@@ -114,7 +122,7 @@
 
 			$config = $Model->{$type}[$associated];
 
-			$afield = $this->settings[$associated]['field'];
+			$afield = $this->settings[$Model->{$associated}->name]['field'];
 			$aschema = $Model->{$associated}->schema();
 
 			if (isset($aschema[$afield])) {
