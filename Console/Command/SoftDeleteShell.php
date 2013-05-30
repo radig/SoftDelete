@@ -29,249 +29,254 @@ class SoftDeleteShell extends Shell {
  *
  * @var string
  */
-	public $connection = 'default';
+    public $connection = 'default';
 
 /**
  * DataSource instance
  * @var DataSource
  */
-	public $db = null;
+    public $db = null;
 
 /**
  *
  * @var array
  */
-	public $ignoredModels = array(
-		'Log',
-		'LogDetail',
-	);
+    public $ignoredModels = array(
+        'Log',
+        'LogDetail',
+    );
 
-	public $ignoredTables = array(
-		'acos',
-		'aros',
-		'aros_acos',
-		'logs',
-		'sessions',
-		'schema_migrations',
-	);
+    public $ignoredTables = array(
+        'acos',
+        'aros',
+        'aros_acos',
+        'logs',
+        'sessions',
+        'schema_migrations',
+    );
 
 /**
  * Override startup
  *
  * @return void
  */
-	public function startup()
-	{
-		$this->out(__d('SoftDelete', 'Cake SoftDelete Shell'));
-		$this->hr();
+    public function startup()
+    {
+        $this->out(__d('SoftDelete', 'Cake SoftDelete Shell'));
+        $this->hr();
 
-		if (!empty($this->params['connection']))
-			$this->connection = $this->params['connection'];
-	}
+        if (!empty($this->params['connection'])) {
+            $this->connection = $this->params['connection'];
+        }
+    }
 
 /**
  * get the option parser.
  *
  * @return void
  */
-	public function getOptionParser()
-	{
-		$parser = parent::getOptionParser();
-		return $parser->description(
-			'The SoftDelete shell.' .
-			'')
-			->addOption('connection', array(
-					'short' => 'c',
-					'default' => 'default',
-					'help' => __d('SoftDelete', 'Set db config <config>. Uses \'default\' if none is specified.')))
-			->addOption('force', array(
-					'short' => 'f',
-					'boolean' => true,
-					'help' => __d('SoftDelete', 'Force changes in all tables of database.')))
-			->addSubcommand('insert', array(
-				'help' => __d('SoftDelete', 'Insert columns \'created_by\' and \'modified_by\' in all database tables.')))
-			->addSubcommand('remove', array(
-				'help' => __d('SoftDelete', 'Remove columns \'created_by\' and \'modified_by\' from all database tables.')));
-	}
+    public function getOptionParser()
+    {
+        $parser = parent::getOptionParser();
+        return $parser->description(
+            'The SoftDelete shell.' .
+            '')
+            ->addOption('connection', array(
+                    'short' => 'c',
+                    'default' => 'default',
+                    'help' => __d('SoftDelete', 'Set db config <config>. Uses \'default\' if none is specified.')))
+            ->addOption('force', array(
+                    'short' => 'f',
+                    'boolean' => true,
+                    'help' => __d('SoftDelete', 'Force changes in all tables of database.')))
+            ->addSubcommand('insert', array(
+                'help' => __d('SoftDelete', 'Insert passed column in all database tables.')))
+            ->addSubcommand('remove', array(
+                'help' => __d('SoftDelete', 'Remove passed column of all database tables.')));
+    }
 
 /**
  * Override main
  *
  * @return void
  */
-	public function main()
-	{
-		$this->run();
-	}
+    public function main()
+    {
+        $this->run();
+    }
 
 /**
  * Run
  *
  * @return void
  */
-	public function run()
-	{
-		$null = null;
-		$this->db =& ConnectionManager::getDataSource($this->connection);
-		$this->db->cacheSources = false;
-		$this->db->begin($null);
+    public function run()
+    {
+        $null = null;
+        $this->db = ConnectionManager::getDataSource($this->connection);
+        $this->db->cacheSources = false;
+        $this->db->begin($null);
 
-		if(!isset($this->args[0]) || !in_array($this->args[0], array('insert', 'remove')))
-		{
-			$this->out(__d('SoftDelete', 'Invalid option'));
-			return $this->_displayHelp(null);
-		}
+        if (!isset($this->args[0]) || !in_array($this->args[0], array('insert', 'remove'))) {
+            $this->out(__d('SoftDelete', 'Invalid option'));
+            return $this->_displayHelp(null);
+        }
 
-		try {
-			$this->_run($this->args[0]);
-			$this->_clearCache();
+        if (!isset($this->args[1])) {
+            $this->out(__d('SoftDelete', 'You missed field name.'));
+            return $this->_displayHelp(null);
+        }
 
-		} catch (Exception $e) {
-			$this->db->rollback($null);
-			throw $e;
-		}
+        try {
+            $this->_run($this->args[0], $this->args[1]);
+            $this->_clearCache();
+        } catch (Exception $e) {
+            $this->db->rollback($null);
+            throw $e;
+        }
 
-		return $this->db->commit($null);
+        $this->out(__d('SoftDelete', 'All tables are updated.'));
+        $this->out('');
+        return $this->db->commit($null);
+    }
 
-		$this->out(__d('SoftDelete', 'All tables are updated.'));
-		$this->out('');
-		return true;
-	}
+    protected function _run($type, $field)
+    {
+        if (!isset($this->params['force'])) {
+            $tables = $this->_getModels();
+        } else {
+            $tables = $this->_getTables();
+        }
+        if ($type === 'insert') {
+            $this->out(__d('SoftDelete', 'Adding field "%s"', $field));
+        } else {
+            $this->out(__d('SoftDelete', 'Droping field "%s"', $field));
+        }
 
-	protected function _run($type)
-	{
-		if(!isset($this->params['force']))
-			$tables = $this->_getModels();
-		else
-			$tables = $this->_getTables();
+        foreach ($tables as $tableName => $schema) {
+            $status = $this->{'_' . $type}($schema, $tableName, $field);
 
-		if($type === 'insert')
-			$this->out(__d('SoftDelete', 'Adding fields'));
-		else
-			$this->out(__d('SoftDelete', 'Droping fields'));
+            if ($status !== null) {
+                $this->out(sprintf(__d('SoftDelete', 'Changing table \'%s\': %s'), $tableName, $status ? __d('SoftDelete', 'Success') : __d('SoftDelete', 'Error')));
+            }
+        }
+    }
 
-		$this->out('');
+    protected function _insert($schema, $tableName, $field)
+    {
+        $fieldOptions = array('type' => 'boolean', 'null' => false, 'default' => false);
 
-		foreach($tables as $tableName => $schema)
-		{
+        $changes = array('add' => array());
 
-			$status = $this->{'_' . $type}($schema, $tableName);
+        if (!isset($schema[$field])) {
+            $changes[$tableName]['add'][$field] = $fieldOptions;
+        }
 
-			if($status !== null)
-			{
-				$this->out(sprintf(__d('SoftDelete', 'Changing table \'%s\': %s'), $tableName, $status ? __d('SoftDelete', 'Success') : __d('SoftDelete', 'Error')));
-			}
-		}
-	}
+        $sql = $this->db->alterSchema($changes);
 
-	protected function _insert($schema, $tableName)
-	{
-		$fieldOptions = array('type' => 'boolean', 'null' => false, 'default' => false);
+        if (empty($sql)) {
+            return null;
+        }
 
-		$changes = array('add' => array());
+        return (bool)$this->_execute($sql);
+    }
 
-		if(!isset($schema['deleted']))
-			$changes[$tableName]['add']['deleted'] = $fieldOptions;
+    protected function _remove($schema, $tableName, $field)
+    {
+        $changes = array('drop' => array());
 
-		$sql = $this->db->alterSchema($changes);
+        if (isset($schema[$field])) {
+            $changes[$tableName]['drop'][$field] = array();
+        }
 
-		if(empty($sql))
-			return null;
+        $sql = $this->db->alterSchema($changes);
 
-		return (bool)$this->_execute($sql);
-	}
+        if (empty($sql)) {
+            return null;
+        }
 
-	protected function _remove($schema, $tableName)
-	{
-		$changes = array('drop' => array());
+        return (bool)$this->_execute($sql);
+    }
 
-		if(isset($schema['deleted']))
-			$changes[$tableName]['drop']['deleted'] = array();
+    protected function _execute($sql)
+    {
+        if (@$this->db->execute($sql) === false) {
+            throw new Exception($this, sprintf(__d('SoftDelete', 'SQL Error: %s'), $this->db->lastError()));
+        }
 
-		$sql = $this->db->alterSchema($changes);
+        return true;
+    }
 
-		if(empty($sql))
-			return null;
+    protected function _getModels()
+    {
+        $models = App::objects('Model');
+        $plugins = CakePlugin::loaded();
 
-		return (bool)$this->_execute($sql);
-	}
+        foreach ($plugins as $plugin) {
+            $pluginModels = App::objects($plugin . '.Model');
 
-	protected function _execute($sql)
-	{
-		if (@$this->db->execute($sql) === false)
-			throw new Exception($this, sprintf(__d('SoftDelete', 'SQL Error: %s'), $this->db->lastError()));
+            if (empty($pluginModels)) {
+                continue;
+            }
 
-		return true;
-	}
+            foreach ($pluginModels as $model) {
+                if (in_array($model, $this->ignoredModels)) {
+                    continue;
+                }
 
-	protected function _getModels()
-	{
-		$models = App::objects('Model');
-		$plugins = CakePlugin::loaded();
+                $models[] = $plugin . '.' . $model;
+            }
+        }
 
-		foreach($plugins as $plugin)
-		{
-			$pluginModels = App::objects($plugin . '.Model');
+        $out = array();
+        foreach ($models as $k => $m) {
+            if (strpos(strtolower($m), 'appmodel') !== false) {
+                continue;
+            }
 
-			if(empty($pluginModels))
-				continue;
+            $_model = ClassRegistry::init($m);
 
-			foreach ($pluginModels as $model)
-			{
-				if(in_array($model, $this->ignoredModels))
-					continue;
+            if (!isset($_model->table) || empty($_model->table) || in_array($_model->table, $this->ignoredModels) || $_model->useDbConfig !== $this->connection) {
+                continue;
+            }
 
-				$models[] = $plugin . '.' . $model;
-			}
-		}
+            $schema = $_model->schema(true);
 
-		$out = array();
-		foreach($models as $k => $m)
-		{
-			if(strpos(strtolower($m), 'appmodel') !== false)
-				continue;
+            if (empty($schema)) {
+                continue;
+            }
 
-			$_model = ClassRegistry::init($m);
+            $tableName = $_model->tablePrefix ? $_model->tablePrefix . $_model->table : $_model->table;
 
-			if(!isset($_model->table) || empty($_model->table) || in_array($_model->table, $this->ignoredModels) || $_model->useDbConfig !== $this->connection)
-				continue;
+            $out[$tableName] = $schema;
+        }
 
-			$schema = $_model->schema(true);
+        return $out;
+    }
 
-			if(empty($schema))
-				continue;
+    protected function _getTables()
+    {
+        $_Schema = new CakeSchema();
+        $database = $_Schema->read();
 
-			$tableName = $_model->tablePrefix ? $_model->tablePrefix . $_model->table : $_model->table;
+        $tables = array();
+        foreach ($database['tables'] as $tableName => $schema) {
+            if (in_array($tableName, $this->ignoredTables) || empty($tableName) || $tableName === 'missing') {
+                continue;
+            }
 
-			$out[$tableName] = $schema;
-		}
+            $tables[$tableName] = $schema;
+        }
 
-		return $out;
-	}
+        return $tables;
+    }
 
-	protected function _getTables()
-	{
-		$_Schema = new CakeSchema();
-		$database = $_Schema->read();
-
-		$tables = array();
-		foreach($database['tables'] as $tableName => $schema)
-		{
-			if(in_array($tableName, $this->ignoredTables) || empty($tableName) || $tableName === 'missing')
-				continue;
-
-			$tables[$tableName] = $schema;
-		}
-
-		return $tables;
-	}
-
-	protected function _clearCache() {
-		DboSource::$methodCache = array();
-		$keys = Cache::configured();
-		foreach ($keys as $key) {
-			Cache::clear(false, $key);
-		}
-		ClassRegistry::flush();
-	}
+    protected function _clearCache() {
+        DboSource::$methodCache = array();
+        $keys = Cache::configured();
+        foreach ($keys as $key) {
+            Cache::clear(false, $key);
+        }
+        ClassRegistry::flush();
+    }
 }
