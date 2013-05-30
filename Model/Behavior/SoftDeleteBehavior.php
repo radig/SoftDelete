@@ -43,10 +43,27 @@
 	public function beforeFind(Model $Model, $queryData)
 	{
 		parent::beforeFind($Model, $queryData);
-
 		$this->_prepareFind($queryData, $Model);
 
 		return $queryData;
+	}
+
+	/**
+	 * Informa se o registro existe e esta ativo (não deletado)
+	 * @param  Model $Model
+	 * @param  int   $id    ID do registro
+	 * @return bool
+	 */
+	public function active($Model, $id)
+	{
+		return (bool)$Model->find('count', array(
+			'conditions' => array(
+				$Model->alias . '.' . $Model->primaryKey => $id,
+				$Model->alias . '.' . $this->settings[$Model->alias]['field'] => false
+			),
+			'recursive' => -1,
+			'callbacks' => false
+		));
 	}
 
 	/**
@@ -82,28 +99,25 @@
 		$schema = $Model->schema();
 		$associateds = $Model->getAssociated();
 
-		if(isset($schema[$fieldName]))
-		{
+		if (isset($schema[$fieldName])) {
 			$query['conditions'][$field] = false;
 		}
 
-		if(empty($associateds))
-		{
+		if (empty($associateds)) {
 			return;
 		}
 
-		foreach($associateds as $associated => $type)
-		{
-			if(!$Model->{$associated}->Behaviors->attached('SoftDelete'))
+		foreach ($associateds as $associated => $type) {
+			if (!$Model->{$associated}->Behaviors->attached('SoftDelete')) {
 				continue;
+			}
 
 			$config = $Model->{$type}[$associated];
 
 			$afield = $this->settings[$associated]['field'];
 			$aschema = $Model->{$associated}->schema();
 
-			if(isset($aschema[$afield]))
-			{
+			if (isset($aschema[$afield])) {
 				$config['conditions'][$associated . '.' . $afield] = false;
 			}
 
