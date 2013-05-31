@@ -25,117 +25,121 @@
  */
  class SoftDeleteBehavior extends ModelBehavior
 {
-	public $defaultSettings = array(
-		'field' => 'deleted'
-	);
+    public $defaultSettings = array(
+        'field' => 'deleted'
+    );
 
-	public function setup(Model $Model, $config = array())
-	{
-		$this->settings[$Model->alias] = Set::merge($this->defaultSettings, $config);
-	}
+    public function setup(Model $Model, $config = array())
+    {
+        $this->settings[$Model->alias] = Set::merge($this->defaultSettings, $config);
+    }
 
-	/**
-	 * Adiciona condição de registros ativos nas buscas do modelo
-	 * @param Model $Model
-	 * @param array $queryData
-	 * @see ModelBehavior::beforeFind()
-	 */
-	public function beforeFind(Model $Model, $queryData)
-	{
-		parent::beforeFind($Model, $queryData);
-		$this->_prepareFind($queryData, $Model);
+    /**
+     * Adiciona condição de registros ativos nas buscas do modelo
+     * @param Model $Model
+     * @param array $queryData
+     * @see ModelBehavior::beforeFind()
+     */
+    public function beforeFind(Model $Model, $queryData)
+    {
+        parent::beforeFind($Model, $queryData);
+        $this->_prepareFind($queryData, $Model);
 
-		return $queryData;
-	}
+        return $queryData;
+    }
 
-	/**
-	 * Informa se o registro existe e esta ativo (não deletado).
-	 * Caso modelo não tenha o campo relacionado ao SoftDelete, apenas
-	 * retorna um Model::exists para o registro.
-	 *
-	 * @param  Model $Model
-	 * @param  int   $id    ID do registro
-	 * @return bool
-	 */
-	public function active($Model, $id)
-	{
-		$schema = $Model->schema();
-		if (!isset($schema[$this->settings[$Model->alias]['field']])) {
-			return $Model->exists($id);
-		}
+    /**
+     * Informa se o registro existe e esta ativo (não deletado).
+     * Caso modelo não tenha o campo relacionado ao SoftDelete, apenas
+     * retorna um Model::exists para o registro.
+     *
+     * @param  Model $Model
+     * @param  int   $id    ID do registro
+     * @return bool
+     */
+    public function active($Model, $id)
+    {
+        $schema = $Model->schema();
+        if (!isset($schema[$this->settings[$Model->alias]['field']])) {
+            return $Model->exists($id);
+        }
 
-		return (bool)$Model->find('count', array(
-			'conditions' => array(
-				$Model->alias . '.' . $Model->primaryKey => $id,
-				$Model->alias . '.' . $this->settings[$Model->alias]['field'] => false
-			),
-			'recursive' => -1,
-			'callbacks' => false
-		));
-	}
+        return (bool)$Model->find('count', array(
+            'conditions' => array(
+                $Model->alias . '.' . $Model->primaryKey => $id,
+                $Model->alias . '.' . $this->settings[$Model->alias]['field'] => false
+            ),
+            'recursive' => -1,
+            'callbacks' => false
+        ));
+    }
 
-	/**
-	 * Implementa soft-delete para modelos da aplicação
-	 *
-	 * @param Model $Model
-	 * @param int $id
-	 */
-	public function softDelete(&$Model, $id)
-	{
-		$Model->id = $id;
+    /**
+     * Implementa soft-delete para modelos da aplicação
+     *
+     * @param Model $Model
+     * @param int $id
+     */
+    public function softDelete(&$Model, $id)
+    {
+        $Model->id = $id;
 
-		return ($Model->saveField($this->settings[$Model->alias]['field'], true) !== false);
-	}
+        return ($Model->saveField($this->settings[$Model->alias]['field'], true) !== false);
+    }
 
-	/**
-	 * Método para "desdeletar" uma entrada do modelo.
-	 *
-	 * @param Model $Model
-	 * @param int $id
-	 */
-	public function unDelete(&$Model, $id)
-	{
-		$Model->id = $id;
+    /**
+     * Método para "desdeletar" uma entrada do modelo.
+     *
+     * @param Model $Model
+     * @param int $id
+     */
+    public function unDelete(&$Model, $id)
+    {
+        $Model->id = $id;
 
-		return ($Model->saveField($this->settings[$Model->alias]['field'], false) !== false);
-	}
+        return ($Model->saveField($this->settings[$Model->alias]['field'], false) !== false);
+    }
 
-	private function _prepareFind(&$query, &$Model)
-	{
-		$fieldName = $this->settings[$Model->alias]['field'];
-		$field =  $Model->alias . '.' . $fieldName;
-		$schema = $Model->schema();
-		$associateds = $Model->getAssociated();
+    private function _prepareFind(&$query, &$Model)
+    {
+        $fieldName = $this->settings[$Model->alias]['field'];
+        $field =  $Model->alias . '.' . $fieldName;
+        $schema = $Model->schema();
+        $associateds = $Model->getAssociated();
 
-		if (isset($schema[$fieldName])) {
-			$query['conditions'][$field] = false;
-		}
+        if (isset($schema[$fieldName])) {
+            $query['conditions'][$field] = false;
+        }
 
-		if (empty($associateds)) {
-			return;
-		}
+        if (empty($associateds)) {
+            return;
+        }
 
-		foreach ($associateds as $associated => $type) {
-			if (!$Model->{$associated}->Behaviors->attached('SoftDelete')) {
-				continue;
-			}
+        foreach ($associateds as $associated => $type) {
+            if (!$Model->{$associated}->Behaviors->attached('SoftDelete')) {
+                continue;
+            }
 
-			$config = $Model->{$type}[$associated];
+            if (!isset($this->settings[$Model->{$associated}->name]['field'])) {
+                continue;
+            }
 
-			$afield = $this->settings[$Model->{$associated}->name]['field'];
-			$aschema = $Model->{$associated}->schema();
+            $config = $Model->{$type}[$associated];
 
-			if (isset($aschema[$afield])) {
-				$config['conditions'][$associated . '.' . $afield] = false;
-			}
+            $afield = $this->settings[$Model->{$associated}->name]['field'];
+            $aschema = $Model->{$associated}->schema();
 
-			$Model->unbindModel(array($type => array($associated)));
+            if (isset($aschema[$afield])) {
+                $config['conditions'][$associated . '.' . $afield] = false;
+            }
 
-			$Model->bindModel(array(
-				$type => array(
-					$associated => $config
-				)
-			));
-		}
-	}
+            $Model->unbindModel(array($type => array($associated)));
+
+            $Model->bindModel(array(
+                $type => array(
+                    $associated => $config
+                )
+            ));
+        }
+    }
 }
